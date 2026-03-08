@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  CONSULTANT
+  OWNER
+  PRINCIPAL
+  SCHOOL_ADMIN
+  IT_ADMIN
+  TEACHER
+  STAFF
+}
+
+enum SchoolStage {
+  ONBOARDING
+  PILOT
+  SCALE
+}
+
+enum GovernanceCategory {
+  BEHAVIOR_POLICY
+  SAFEGUARDING
+  ACADEMIC_POLICY
+  SCHOOL_PHILOSOPHY
+  PARENT_COMMUNICATION_POLICY
+  INCIDENT_ESCALATION_SOP
+  AI_USAGE_POLICY
+  CLASSROOM_ROUTINES
+  TRANSFORMATION_NOTES
+}
+
+enum ToolVisibility {
+  INTERNAL_ONLY
+  CONSULTANT_ONLY
+  RECOMMENDABLE
+  SCHOOL_VISIBLE
+}
+
+enum ToolCostTier {
+  LOW
+  MID
+  HIGH
+  ENTERPRISE
+}
+
+model School {
+  id                    String                    @id @default(cuid())
+  name                  String
+  stage                 SchoolStage
+  schoolType            String?
+  curriculumNotes       String?
+  gradeBands            String?
+  studentCount          Int?
+  staffCount            Int?
+  deviceRatio           String?
+  connectivityQuality   String?
+  currentTools          String?
+  budgetPreference      ToolCostTier?
+  priorityOutcomes      String?
+  constraints           String?
+  readinessStage        String?
+  aiAdoptionGoal        String?
+  individualizedGoal    String?
+  projectsGoal          String?
+  selGoal               String?
+  readinessScore        Int                       @default(0)
+  createdAt             DateTime                  @default(now())
+  governanceDocuments   GovernanceDocument[]
+  governanceQueries     GovernanceQuery[]
+  toolRecommendations   SchoolToolRecommendation[]
+  licenseOps            SchoolLicense[]
+  packAssignments       SchoolPackAssignment[]
+  trainingAssignments   TrainingAssignment[]
+  scorecardSnapshots    ScorecardSnapshot[]
+}
+
+model GovernanceDocument {
+  id          String                      @id @default(cuid())
+  schoolId    String
+  title       String
+  fileUrl     String?
+  category    GovernanceCategory
+  contentText String
+  createdAt   DateTime                    @default(now())
+  school      School                      @relation(fields: [schoolId], references: [id])
+  versions    GovernanceDocumentVersion[]
+  chunks      GovernanceDocumentChunk[]
+}
+
+model GovernanceDocumentVersion {
+  id          String   @id @default(cuid())
+  documentId  String
+  version     Int
+  contentText String
+  createdAt   DateTime @default(now())
+  document    GovernanceDocument @relation(fields: [documentId], references: [id])
+}
+
+model GovernanceDocumentChunk {
+  id          String   @id @default(cuid())
+  documentId  String
+  idx         Int
+  contentText String
+  tsv         Unsupported("tsvector")?
+  document    GovernanceDocument @relation(fields: [documentId], references: [id])
+}
+
+model GovernanceQuery {
+  id          String   @id @default(cuid())
+  schoolId    String
+  question    String
+  answer      String
+  confidence  Float
+  createdAt   DateTime @default(now())
+  school      School   @relation(fields: [schoolId], references: [id])
+  sources     GovernanceQuerySource[]
+}
+
+model GovernanceQuerySource {
+  id          String   @id @default(cuid())
+  queryId     String
+  documentId  String
+  quote       String
+  query       GovernanceQuery @relation(fields: [queryId], references: [id])
+}
+
+model ToolCatalog {
+  id                String         @id @default(cuid())
+  key               String         @unique
+  name              String
+  description       String
+  category          String
+  useCase           String
+  maturityLevel     String
+  riskLevel         String
+  costTier          ToolCostTier
+  regionFit         String
+  deviceRequirement String
+  connectivityNeed  String
+  gradeSuitability  String
+  recommendedRoles  String
+  visibility        ToolVisibility
+  trainingRequired  Boolean        @default(false)
+  recommendedInPacks String?
+  schoolRecommendations SchoolToolRecommendation[]
+}
+
+model SchoolToolRecommendation {
+  id          String   @id @default(cuid())
+  schoolId    String
+  toolId      String
+  status      String
+  rationale   String
+  createdAt   DateTime @default(now())
+  school      School @relation(fields: [schoolId], references: [id])
+  tool        ToolCatalog @relation(fields: [toolId], references: [id])
+}
+
+model TransformationPack {
+  id                  String   @id @default(cuid())
+  slug                String   @unique
+  title               String
+  overview            String
+  readinessChecklist  String
+  trainingSuggestions String
+  milestones          String
+  templates           String
+  recommendedToolCategories String
+  optionalBundles     String
+  proofPoints         String
+  nextLeadershipActions String
+  assignments         SchoolPackAssignment[]
+}
+
+model SchoolPackAssignment {
+  id        String   @id @default(cuid())
+  schoolId  String
+  packId    String
+  status    String
+  school    School @relation(fields: [schoolId], references: [id])
+  pack      TransformationPack @relation(fields: [packId], references: [id])
+}
+
+model SchoolLicense {
+  id               String   @id @default(cuid())
+  schoolId         String
+  vendorName       String
+  productName      String
+  seatsPurchased   Int
+  seatsAssigned    Int
+  renewalDate      DateTime
+  costNotes        String
+  ownerContact     String
+  status           String
+  implementationNotes String
+  school           School @relation(fields: [schoolId], references: [id])
+}
+
+model TrainingModule {
+  id             String   @id @default(cuid())
+  title          String
+  videoUrl       String
+  transcript     String
+  checklist      String
+  quizPrompt     String
+  roleRequired   Role?
+  relatedPackSlug String?
+  requiredForToolKey String?
+  assignments    TrainingAssignment[]
+}
+
+model TrainingAssignment {
+  id          String   @id @default(cuid())
+  schoolId    String
+  moduleId    String
+  role        Role
+  status      String
+  attestedAt  DateTime?
+  school      School @relation(fields: [schoolId], references: [id])
+  module      TrainingModule @relation(fields: [moduleId], references: [id])
+}
+
+model ScorecardSnapshot {
+  id                          String   @id @default(cuid())
+  schoolId                    String
+  readinessScore              Int
+  gatesCompleted              Int
+  gatesBlocked                Int
+  trainingCompletionRate      Float
+  approvedToolsEnabled        Int
+  recommendationToActivationDays Float
+  openBlockers                Int
+  unresolvedTickets           Int
+  bundleAdoption              Float
+  packAdoption                Float
+  governanceCoverage          Float
+  policyAttestationCompletion Float
+  createdAt                   DateTime @default(now())
+  school                      School @relation(fields: [schoolId], references: [id])
+}
